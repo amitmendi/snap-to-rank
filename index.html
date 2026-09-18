@@ -136,6 +136,23 @@
     border: 1px solid var(--line); border-radius: 14px; padding: 14px; text-align: center; margin-top: 6px;
   }
   .stars { font-size: 22px; color: var(--accent); letter-spacing: 4px; margin: 8px 0; }
+
+  .compare-row { display: flex; gap: 8px; margin-top: 14px; }
+  .compare-card {
+    flex: 1; border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 8px;
+    text-align: center; cursor: pointer; transition: border-color .15s ease, transform .1s ease; background: #fff;
+  }
+  .compare-card:hover { border-color: var(--ink); transform: translateY(-1px); }
+  .compare-card .emoji { font-size: 24px; display: block; margin-bottom: 4px; }
+  .compare-card .name { font-weight: 700; font-size: 12.5px; margin-bottom: 2px; }
+  .compare-card .meta { font-size: 10.5px; color: var(--muted); }
+  .vs { align-self: center; font-size: 11px; color: var(--muted); font-weight: 700; }
+  .compare-progress { display: flex; justify-content: center; gap: 5px; margin: 14px 0 4px; }
+  .compare-progress span { width: 20px; height: 3px; border-radius: 2px; background: var(--line); }
+  .compare-progress span.done { background: var(--accent); }
+  .compare-prompt { text-align: center; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .ranking-line { text-align: center; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+
   .search-mock {
     border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; font-size: 13px; color: var(--muted);
     display: flex; align-items: center; gap: 8px; margin-top: 6px;
@@ -394,9 +411,12 @@ function render(result, scenario) {
 
   switch (result.status) {
     case 'match':
-      screen.innerHTML = matchScreen(result.restaurant);
-      explain.innerHTML = `<b>Auto-matched.</b> Confidence ${(result.restaurant.confidence*100).toFixed(0)}%,
-        single candidate within radius — deep-links straight to the rank flow. See PRD §6, decision rule 4b.`;
+      screen.innerHTML = confirmScreen(result.restaurant);
+      explain.innerHTML = `<b>Auto-matched, but not dropped straight into ranking.</b> Confidence
+        ${(result.restaurant.confidence*100).toFixed(0)}%, single candidate within radius — high enough to skip
+        search, but the system still made the guess with no human check yet. One-tap confirm first; only after
+        that does it enter the real comparison-based rank flow. Starting the multi-round flow against the wrong
+        place is a worse mistake than a search redirect, so this interstitial exists even on high confidence.`;
       break;
 
     case 'already_ranked':
@@ -455,17 +475,106 @@ function render(result, scenario) {
   }
 }
 
-function matchScreen(r) {
+function confirmScreen(r) {
   return `
     <span class="badge match">Auto-matched · ${(r.confidence*100).toFixed(0)}% confidence</span>
-    <div class="result-title">${r.name}</div>
-    <div class="result-sub">${r.cuisine} · ${r.distance.toFixed(0)}m from photo location</div>
-    <div class="rank-mock">
-      <div style="font-size:12px; color:var(--muted);">How was it?</div>
-      <div class="stars">★ ★ ★ ★ ★</div>
-      <div style="font-size:11px; color:var(--muted);">Tap to rank ${r.name}</div>
+    <div class="result-title">Was this at ${r.name}?</div>
+    <div class="result-sub">${r.cuisine} · ${r.distance.toFixed(0)}m from where the photo was taken</div>
+    <div class="card-list">
+      <div class="cand-card">
+        <div>
+          <div class="name">${r.name}</div>
+          <div class="meta">${r.cuisine}</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="pill primary" onclick="startComparisonFlow('${r.id}')">Yes, rank it</button>
+          <button class="pill ghost" onclick="rejectAutoMatch()">Not this one</button>
+        </div>
+      </div>
     </div>
-    <div class="why-box"><b>Wrong place?</b> Tap here to see other nearby spots or search manually.</div>
+    <div class="why-box">One-tap confirm before entering the real rank flow — a wrong guess here should never
+      auto-commit to a multi-step ranking session.</div>
+  `;
+}
+
+function rejectAutoMatch() {
+  document.getElementById('screen').innerHTML = fallbackScreen('Search', 'No problem — search for the right place manually.');
+  document.getElementById('explain').innerHTML = `<b>Auto-match rejected at the confirm step.</b> Exactly the
+    scenario the interstitial exists for — falls back to search rather than anywhere near a forced rank flow.`;
+}
+
+const CUISINE_EMOJI = {
+  Japanese: '🍣', Chinese: '🥟', Mexican: '🌮', Hawaiian: '🍚',
+  American: '🍔', Wings: '🍗', Italian: '🍝',
+};
+
+function neighborPool(r) {
+  const emoji = CUISINE_EMOJI[r.cuisine] || '🍽️';
+  return [
+    { emoji, name: 'A nearby favorite', meta: `${r.cuisine} · similar score` },
+    { emoji, name: 'Another local pick', meta: `${r.cuisine} · similar score` },
+  ];
+}
+
+let compareState = null; // { restaurant, round, neighbors }
+
+function startComparisonFlow(restaurantId) {
+  const r = RESTAURANTS.find(x => x.id === restaurantId) ||
+            (disambigState && disambigState.candidates.find(c => c.id === restaurantId));
+  compareState = { restaurant: r, round: 0, neighbors: neighborPool(r) };
+  document.getElementById('screen').innerHTML = compareScreen();
+  document.getElementById('explain').innerHTML = `<b>Real Beli ranking mechanism, not a star rating.</b> Beli
+    ranks new places via a binary-search-style "which do you prefer?" comparison sequence against existing
+    neighbors in the same category — this reuses that exact interaction pattern (see
+    poc-smart-comparison-cohorts.html) rather than inventing a generic rank UI.`;
+}
+
+function compareScreen() {
+  const { restaurant, round, neighbors } = compareState;
+  const totalRounds = neighbors.length;
+  const candidate = neighbors[round];
+  const dots = Array.from({ length: totalRounds }, (_, i) =>
+    `<span class="${i <= round ? 'done' : ''}"></span>`).join('');
+  return `
+    <div class="ranking-line">Ranking <b style="color:var(--ink)">${restaurant.name}</b> <span style="color:var(--muted)">(${restaurant.cuisine})</span></div>
+    <div class="compare-prompt">Which do you prefer?</div>
+    <div class="compare-row">
+      <div class="compare-card" onclick="answerComparison()">
+        <span class="emoji">🍽️</span>
+        <div class="name">${restaurant.name}</div>
+        <div class="meta">${restaurant.cuisine} · new</div>
+      </div>
+      <div class="vs">VS</div>
+      <div class="compare-card" onclick="answerComparison()">
+        <span class="emoji">${candidate.emoji}</span>
+        <div class="name">${candidate.name}</div>
+        <div class="meta">${candidate.meta}</div>
+      </div>
+    </div>
+    <div class="compare-progress">${dots}</div>
+  `;
+}
+
+function answerComparison() {
+  if (compareState.round < compareState.neighbors.length - 1) {
+    compareState.round++;
+    document.getElementById('screen').innerHTML = compareScreen();
+  } else {
+    document.getElementById('screen').innerHTML = rankedScreen(compareState.restaurant);
+    document.getElementById('explain').innerHTML = `<b>Ranking submitted.</b> This is the point where the
+      upgraded notification and today's search-bar flow converge — same rank flow either way, the only
+      difference Snap-to-Rank makes is how many taps it took to get here.`;
+  }
+}
+
+function rankedScreen(r) {
+  return `
+    <span class="badge match">Ranked ✓</span>
+    <div class="result-title">${r.name}</div>
+    <div class="result-sub">Added to your ${r.cuisine} list.</div>
+    <div class="rank-mock">
+      <div style="font-size:12px; color:var(--muted);">🎉 Nice — that's one more ranked place.</div>
+    </div>
   `;
 }
 
@@ -508,10 +617,11 @@ function disambigScreen() {
 }
 
 function pickCandidate(id) {
-  const r = disambigState.candidates.find(c => c.id === id);
-  document.getElementById('screen').innerHTML = matchScreen(r);
-  document.getElementById('explain').innerHTML = `<b>User confirmed the match manually.</b> This selection is a
-    labeled signal worth logging for future confidence tuning (PRD §7, Future Work) — not acted on automatically in MVP.`;
+  startComparisonFlow(id);
+  document.getElementById('explain').innerHTML = `<b>User picked this from disambiguation — no extra confirm
+    needed.</b> Unlike the auto-match path, this was already an explicit human choice, so it goes straight into
+    the real comparison-based rank flow. This pick is also a labeled signal worth logging for future confidence
+    tuning (PRD §7, Future Work) — not acted on automatically in MVP.`;
 }
 
 function rejectCandidate(id) {
