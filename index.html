@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Beli — Snap-to-Rank Prototype</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #e6e2db;
+    --card: #ffffff;
+    --bg: #f4f1ec;
+    --accent: #d6543c;
+    --accent-soft: #fbe8e2;
+    --good: #2f7d5a;
+    --good-soft: #e4f2ea;
+    --warn: #a86a1c;
+    --warn-soft: #f7ecd9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; text-align: center; }
+  .subhead { color: var(--muted); font-size: 13px; margin-bottom: 22px; text-align: center; max-width: 560px; line-height: 1.5; }
+
+  .layout {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 1080px;
+    width: 100%;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+    width: 320px;
+  }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+
+  .scenario-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 10px;
+    padding: 9px 12px;
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    cursor: pointer;
+    color: var(--ink);
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .scenario-btn:hover { border-color: var(--accent); }
+  .scenario-btn.active { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .scenario-btn .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    padding: 1px 6px; border-radius: 6px; margin-left: 6px; vertical-align: middle;
+  }
+  .tag.happy { background: var(--good-soft); color: var(--good); }
+  .tag.fallback { background: var(--warn-soft); color: var(--warn); }
+  .tag.disambig { background: #e5e9f7; color: #3a4fa0; }
+
+  .phone {
+    width: 340px;
+    background: var(--card);
+    border-radius: 28px;
+    border: 1px solid var(--line);
+    box-shadow: 0 20px 40px -20px rgba(0,0,0,0.25);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .statusbar { height: 28px; background: var(--ink); }
+  .appheader { padding: 14px 18px 10px; border-bottom: 1px solid var(--line); }
+  .appheader .brand { font-weight: 700; font-size: 15px; }
+  .appheader .flow { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  .screen { min-height: 420px; padding: 16px 18px 24px; }
+
+  .noti {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    cursor: pointer;
+    box-shadow: 0 8px 18px -12px rgba(0,0,0,0.3);
+    transition: transform .1s ease;
+  }
+  .noti:hover { transform: translateY(-1px); }
+  .noti .icon {
+    width: 34px; height: 34px; border-radius: 10px; background: var(--accent);
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; flex-shrink: 0;
+  }
+  .noti .body b { display: block; font-size: 13px; margin-bottom: 2px; }
+  .noti .body span { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .tap-hint { text-align: center; font-size: 11px; color: var(--muted); margin-top: 10px; }
+
+  .card-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .cand-card {
+    border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px;
+    display: flex; justify-content: space-between; align-items: center; background: #fff;
+  }
+  .cand-card .meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .cand-card .name { font-weight: 600; font-size: 13.5px; }
+  .pill {
+    font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 999px; border: none; cursor: pointer;
+  }
+  .pill.primary { background: var(--accent); color: #fff; }
+  .pill.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+
+  .result-title { font-size: 15px; font-weight: 700; margin: 4px 0 4px; }
+  .result-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; margin-bottom: 10px; }
+  .badge.match { background: var(--good-soft); color: var(--good); }
+  .badge.fallback { background: var(--warn-soft); color: var(--warn); }
+  .badge.blocked { background: #f3e2e2; color: #a13a3a; }
+
+  .rank-mock {
+    border: 1px solid var(--line); border-radius: 14px; padding: 14px; text-align: center; margin-top: 6px;
+  }
+  .stars { font-size: 22px; color: var(--accent); letter-spacing: 4px; margin: 8px 0; }
+  .search-mock {
+    border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; font-size: 13px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px; margin-top: 6px;
+  }
+  .link-btn { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; margin-top: 12px; }
+  .link-btn.muted { color: var(--muted); }
+
+  .why-box {
+    margin-top: 16px; background: #faf8f4; border: 1px dashed var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 11.5px; color: var(--muted); line-height: 1.5;
+  }
+  .why-box b { color: var(--ink); }
+
+  .test-panel { width: 100%; max-width: 1080px; margin-top: 28px; }
+  .test-table { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .test-table th, .test-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .test-table th { background: #faf8f4; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+  .pass { color: var(--good); font-weight: 700; }
+  .fail { color: #a13a3a; font-weight: 700; }
+  .run-btn {
+    background: var(--ink); color: #fff; border: none; border-radius: 999px; padding: 9px 18px;
+    font-size: 12.5px; font-weight: 700; cursor: pointer; margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Snap-to-Rank — interactive prototype</h1>
+<p class="subhead">
+  Simulates the upgraded "new photos detected" notification: real matching logic (haversine distance + confidence
+  scoring) against a mock restaurant DB, running entirely in your browser. Pick a scenario on the left to see the
+  exact flow a user would hit — including every fallback and disambiguation path from the PRD.
+</p>
+
+<div class="layout">
+  <div class="panel">
+    <h2>Scenarios</h2>
+    <div id="scenario-list"></div>
+  </div>
+
+  <div class="phone">
+    <div class="statusbar"></div>
+    <div class="appheader">
+      <div class="brand">beli</div>
+      <div class="flow" id="flow-label">Notifications</div>
+    </div>
+    <div class="screen" id="screen"></div>
+  </div>
+
+  <div class="panel">
+    <h2>What's happening</h2>
+    <div id="explain" style="font-size:12.5px; color:var(--muted); line-height:1.6;"></div>
+  </div>
+</div>
+
+<div class="test-panel panel" style="max-width:1080px;">
+  <h2>Automated scenario checks</h2>
+  <button class="run-btn" onclick="runTests()">Run all tests</button>
+  <div id="test-results"></div>
+</div>
+
+<script>
+// ---------- Config (mirrors PRD §6) ----------
+const BASE_RADIUS_M = 60;         // meters
+const CONFIDENCE_THRESHOLD = 0.55;
+const AMBIGUITY_MARGIN = 0.15;
+const STALE_WINDOW_HOURS = 36;
+
+// ---------- Mock restaurant DB (approx NYC coords, fictional venues) ----------
+const RESTAURANTS = [
+  { id: 'r1', name: 'Ramen Isshin', cuisine: 'Japanese', lat: 40.7359, lng: -73.9911, closed: false },
+  // food-hall cluster: 3 vendors within ~15-25m of each other
+  { id: 'r2', name: 'Bao House',     cuisine: 'Chinese',  lat: 40.7402, lng: -73.9932, closed: false },
+  { id: 'r3', name: 'Taco Alma',     cuisine: 'Mexican',  lat: 40.74025, lng: -73.99305, closed: false },
+  { id: 'r4', name: 'Poke Line',     cuisine: 'Hawaiian', lat: 40.74015, lng: -73.99335, closed: false },
+  // isolated, unambiguous
+  { id: 'r5', name: 'The Marlow',    cuisine: 'American', lat: 40.7484, lng: -73.9857, closed: false },
+  // chain, two distant locations
+  { id: 'r6', name: 'Wingstop – 14th St', cuisine: 'Wings', lat: 40.7369, lng: -73.9954, closed: false },
+  { id: 'r7', name: 'Wingstop – Astoria', cuisine: 'Wings', lat: 40.7644, lng: -73.9235, closed: false },
+  // delisted/closed — should never match
+  { id: 'r8', name: 'Nonna Rosa (closed)', cuisine: 'Italian', lat: 40.7300, lng: -73.9950, closed: true },
+  // for "already ranked" scenario
+  { id: 'r9', name: 'Sushi Nori', cuisine: 'Japanese', lat: 40.7411, lng: -73.9897, closed: false },
+];
+const ALREADY_RANKED = new Set(['r9']);
+
+// ---------- Core matching logic (PRD §6) ----------
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function matchPhoto(photo, now = Date.now()) {
+  if (!photo.photosPermission)   return { status: 'no_photos_permission' };
+  if (!photo.locationEnabled)    return { status: 'no_location_services' };
+  if (photo.isScreenshot)        return { status: 'skipped_screenshot' };
+  if (!photo.hasGPS)             return { status: 'no_gps' };
+
+  const ageHours = (now - photo.takenAt) / 3600000;
+  if (ageHours > STALE_WINDOW_HOURS) return { status: 'stale' };
+
+  const radius = Math.max(BASE_RADIUS_M, photo.accuracyMeters * 2);
+  const candidates = RESTAURANTS
+    .filter(r => !r.closed)
+    .map(r => ({ ...r, distance: haversineMeters(photo.lat, photo.lng, r.lat, r.lng) }))
+    .filter(r => r.distance <= radius)
+    .sort((a, b) => a.distance - b.distance)
+    .map(r => ({ ...r, confidence: Math.max(0, 1 - r.distance / radius) }));
+
+  if (candidates.length === 0) return { status: 'no_match' };
+
+  const top = candidates[0];
+  const tied = candidates.filter(c => (top.confidence - c.confidence) <= AMBIGUITY_MARGIN);
+
+  if (tied.length > 1) return { status: 'ambiguous', candidates: tied };
+  if (top.confidence < CONFIDENCE_THRESHOLD) return { status: 'low_confidence', candidates };
+
+  if (ALREADY_RANKED.has(top.id)) return { status: 'already_ranked', restaurant: top };
+  return { status: 'match', restaurant: top };
+}
+
+// ---------- Scenario fixtures ----------
+const NOW = Date.parse('2026-09-18T20:00:00');
+const hoursAgo = h => NOW - h * 3600000;
+
+const SCENARIOS = [
+  {
+    key: 'happy',
+    label: 'Happy path — single clear match',
+    tag: 'happy',
+    photo: { photosPermission: true, locationEnabled: true, hasGPS: true, isScreenshot: false,
+             lat: 40.7359, lng: -73.9911, accuracyMeters: 10, takenAt: hoursAgo(2) },
+  },
+  {
+    key: 'ambiguous',
+    label: 'Food-hall cluster — 3 candidates',
+    tag: 'disambig',
+    photo: { photosPermission: true, locationEnabled: true, hasGPS: true, isScreenshot: false,
+             lat: 40.74049, lng: -73.99337, accuracyMeters: 15, takenAt: hoursAgo(1) },
+  },
+  {
+    key: 'no_location_services',
+    label: 'Location Services off',
+    tag: 'fallback',
+    photo: { photosPermission: true, locationEnabled: false, hasGPS: false, isScreenshot: false,
+             lat: null, lng: null, accuracyMeters: null, takenAt: hoursAgo(1) },
+  },
+  {
+    key: 'no_photos_permission',
+    label: 'Photos permission denied',
+    tag: 'fallback',
+    photo: { photosPermission: false, locationEnabled: true, hasGPS: true, isScreenshot: false,
+             lat: 40.7359, lng: -73.9911, accuracyMeters: 10, takenAt: hoursAgo(1) },
+  },
+  {
+    key: 'no_gps',
+    label: 'EXIF stripped (AirDrop/IG re-save)',
+    tag: 'fallback',
+    photo: { photosPermission: true, locationEnabled: true, hasGPS: false, isScreenshot: false,
+             lat: null, lng: null, accuracyMeters: null, takenAt: hoursAgo(1) },
+  },
+  {
+    key: 'no_match',
+    label: 'No restaurant nearby (e.g. at home)',
+    tag: 'fallback',
+    photo: { photosPermission: true, locationEnabled: true, hasGPS: true, isScreenshot: false,
+             lat: 40.7010, lng: -74.0100, accuracyMeters: 10, takenAt: hoursAgo(1) },
+  },
+  {
+    key: 'low_confidence',
+    label: 'Low GPS accuracy, weak match',
+    tag: 'fallback',
+    photo: { photosPermission: true, locationEnabled: true, hasGPS: true, isScreenshot: false,
+             lat: 40.7504, lng: -73.9857, accuracyMeters: 140, takenAt: hoursAgo(1) },
+  },
+  {
+    key: 'stale',
+    label: 'Photo is 4 days old (backfill/stale)',
+    tag: 'fallback',
+    photo: { photosPermission: true, locationEnabled: true, hasGPS: true, isScreenshot: false,
+             lat: 40.7359, lng: -73.9911, accuracyMeters: 10, takenAt: hoursAgo(96) },
+  },
+  {
+    key: 'already_ranked',
+    label: 'Already ranked this spot',
+    tag: 'fallback',
+    photo: { photosPermission: true, locationEnabled: true, hasGPS: true, isScreenshot: false,
+             lat: 40.7411, lng: -73.9897, accuracyMeters: 10, takenAt: hoursAgo(1) },
+  },
+  {
+    key: 'closed_nearby',
+    label: 'Only nearby match is delisted/closed',
+    tag: 'fallback',
+    photo: { photosPermission: true, locationEnabled: true, hasGPS: true, isScreenshot: false,
+             lat: 40.7300, lng: -73.9950, accuracyMeters: 10, takenAt: hoursAgo(1) },
+  },
+];
+
+// ---------- UI wiring ----------
+let disambigState = null; // { candidates, rejected: Set }
+
+function renderScenarioList() {
+  const el = document.getElementById('scenario-list');
+  el.innerHTML = '';
+  SCENARIOS.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'scenario-btn';
+    btn.id = 'btn-' + s.key;
+    btn.innerHTML = s.label + `<span class="tag ${s.tag}">${s.tag}</span>`;
+    btn.onclick = () => selectScenario(s.key);
+    el.appendChild(btn);
+  });
+}
+
+function selectScenario(key) {
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + key).classList.add('active');
+  disambigState = null;
+  const scenario = SCENARIOS.find(s => s.key === key);
+  showNotification(scenario);
+}
+
+function showNotification(scenario) {
+  document.getElementById('flow-label').textContent = 'Notifications';
+  const screen = document.getElementById('screen');
+  screen.innerHTML = `
+    <div class="noti" onclick="handleTap('${scenario.key}')">
+      <div class="icon">📸</div>
+      <div class="body">
+        <b>New photos detected</b>
+        <span>Looks like you snapped some pics — rank the place?</span>
+      </div>
+    </div>
+    <div class="tap-hint">↑ tap the notification to continue</div>
+  `;
+  document.getElementById('explain').innerHTML = `
+    This is <b>identical to today's notification</b> — the upgrade is entirely in what happens after the tap.
+    Nothing here changes for the user until they interact.
+  `;
+}
+
+function handleTap(key) {
+  const scenario = SCENARIOS.find(s => s.key === key);
+  const result = matchPhoto(scenario.photo);
+  render(result, scenario);
+}
+
+function render(result, scenario) {
+  const screen = document.getElementById('screen');
+  const explain = document.getElementById('explain');
+  document.getElementById('flow-label').textContent = 'Snap-to-Rank';
+
+  switch (result.status) {
+    case 'match':
+      screen.innerHTML = matchScreen(result.restaurant);
+      explain.innerHTML = `<b>Auto-matched.</b> Confidence ${(result.restaurant.confidence*100).toFixed(0)}%,
+        single candidate within radius — deep-links straight to the rank flow. See PRD §6, decision rule 4b.`;
+      break;
+
+    case 'already_ranked':
+      screen.innerHTML = alreadyRankedScreen(result.restaurant);
+      explain.innerHTML = `<b>Edge case #18/#24.</b> Match found, but the user already ranked this place —
+        never force a re-rank. Opens the place page in its ranked state instead.`;
+      break;
+
+    case 'ambiguous':
+      disambigState = { candidates: result.candidates, rejected: new Set() };
+      screen.innerHTML = disambigScreen();
+      explain.innerHTML = `<b>Edge case #11/#20.</b> ${result.candidates.length} candidates within
+        ${AMBIGUITY_MARGIN*100}% confidence of each other — never auto-picked. User disambiguates;
+        "not this one" cycles to the next candidate (edge case #26); "none of these" always exits to search (#27).`;
+      break;
+
+    case 'low_confidence':
+      screen.innerHTML = fallbackScreen('Low-confidence match', 'The GPS signal was too imprecise to be sure — falling back to search rather than risk a wrong guess.');
+      explain.innerHTML = `<b>Edge case #6.</b> Top candidate's confidence (${(result.candidates[0].confidence*100).toFixed(0)}%)
+        fell below the ${CONFIDENCE_THRESHOLD*100}% threshold — a bad guess is worse than no guess, so this
+        falls back to exactly today's behavior (PRD §6, decision rule 4a).`;
+      break;
+
+    case 'no_match':
+      screen.innerHTML = fallbackScreen('No nearby restaurant', 'No restaurant in Beli\'s database near where this photo was taken.');
+      explain.innerHTML = `<b>Edge case #12/#15/#21.</b> Zero candidates within radius — the location-aware
+        path is silently skipped; today's generic notification behavior is unaffected.`;
+      break;
+
+    case 'no_gps':
+      screen.innerHTML = fallbackScreen('No location data on this photo', 'This photo has no GPS metadata — probably shared from another app or device.');
+      explain.innerHTML = `<b>Edge case #2/#7.</b> EXIF has no coordinates (Camera denied location, or metadata
+        was stripped by AirDrop/WhatsApp/IG). Falls back to search — exactly today's behavior.`;
+      break;
+
+    case 'no_location_services':
+      screen.innerHTML = fallbackScreen('Location Services is off', 'Snap-to-Rank needs location to match photos to places — you can still rank manually.');
+      explain.innerHTML = `<b>Edge case #1.</b> System-wide Location Services is off. We never force a Settings-app
+        trip from inside this flow — just degrade gracefully to today's search.`;
+      break;
+
+    case 'no_photos_permission':
+      screen.innerHTML = fallbackScreen('Photo access not granted', 'Beli can\'t scan your library for this feature — search still works as usual.');
+      explain.innerHTML = `<b>Edge case #3.</b> No Photos permission at all — the feature is invisible, not broken.`;
+      break;
+
+    case 'stale':
+      screen.innerHTML = fallbackScreen('Skipping — photo is a few days old', 'To avoid asking about a trip you don\'t remember, Snap-to-Rank only looks at recent photos.');
+      explain.innerHTML = `<b>Edge case #28.</b> Photo is older than the ${STALE_WINDOW_HOURS}h staleness window
+        (open question in PRD §11 — is 36h the right cutoff?). Falls back rather than resurfacing an old visit.`;
+      break;
+
+    default:
+      screen.innerHTML = fallbackScreen('Search', 'Falling back to search.');
+      explain.innerHTML = `Status: ${result.status}`;
+  }
+}
+
+function matchScreen(r) {
+  return `
+    <span class="badge match">Auto-matched · ${(r.confidence*100).toFixed(0)}% confidence</span>
+    <div class="result-title">${r.name}</div>
+    <div class="result-sub">${r.cuisine} · ${r.distance.toFixed(0)}m from photo location</div>
+    <div class="rank-mock">
+      <div style="font-size:12px; color:var(--muted);">How was it?</div>
+      <div class="stars">★ ★ ★ ★ ★</div>
+      <div style="font-size:11px; color:var(--muted);">Tap to rank ${r.name}</div>
+    </div>
+    <div class="why-box"><b>Wrong place?</b> Tap here to see other nearby spots or search manually.</div>
+  `;
+}
+
+function alreadyRankedScreen(r) {
+  return `
+    <span class="badge match">Already ranked ✓</span>
+    <div class="result-title">${r.name}</div>
+    <div class="result-sub">You ranked this place already — here's your existing score.</div>
+    <div class="rank-mock">
+      <div class="stars">★ ★ ★ ★ ☆</div>
+      <div style="font-size:11px; color:var(--muted);">Your rank · tap to view or edit</div>
+    </div>
+  `;
+}
+
+function disambigScreen() {
+  const { candidates, rejected } = disambigState;
+  const visible = candidates.filter(c => !rejected.has(c.id));
+  if (visible.length === 0) {
+    return fallbackScreen('None of these?', 'No problem — search for the right place manually.');
+  }
+  const rows = visible.map(c => `
+    <div class="cand-card">
+      <div>
+        <div class="name">${c.name}</div>
+        <div class="meta">${c.cuisine} · ${c.distance.toFixed(0)}m · ${(c.confidence*100).toFixed(0)}% match</div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button class="pill primary" onclick="pickCandidate('${c.id}')">Rank</button>
+        <button class="pill ghost" onclick="rejectCandidate('${c.id}')">Not this</button>
+      </div>
+    </div>
+  `).join('');
+  return `
+    <span class="badge fallback">Multiple spots nearby</span>
+    <div class="result-title">Which one did you visit?</div>
+    <div class="card-list">${rows}</div>
+    <button class="link-btn muted" onclick="rejectAll()">None of these — search instead</button>
+  `;
+}
+
+function pickCandidate(id) {
+  const r = disambigState.candidates.find(c => c.id === id);
+  document.getElementById('screen').innerHTML = matchScreen(r);
+  document.getElementById('explain').innerHTML = `<b>User confirmed the match manually.</b> This selection is a
+    labeled signal worth logging for future confidence tuning (PRD §7, Future Work) — not acted on automatically in MVP.`;
+}
+
+function rejectCandidate(id) {
+  disambigState.rejected.add(id);
+  document.getElementById('screen').innerHTML = disambigScreen();
+}
+
+function rejectAll() {
+  document.getElementById('screen').innerHTML = fallbackScreen('Search', 'Opening search so you can find the right place manually.');
+  document.getElementById('explain').innerHTML = `<b>Edge case #27.</b> User rejected every candidate — always
+    exits to today's generic search, never a forced guess.`;
+}
+
+function fallbackScreen(title, sub) {
+  return `
+    <span class="badge fallback">Falling back to search</span>
+    <div class="result-title">${title}</div>
+    <div class="result-sub">${sub}</div>
+    <div class="search-mock">🔍 Search restaurants…</div>
+    <div class="why-box">This is <b>exactly today's existing behavior</b> — Snap-to-Rank never regresses the
+      current feature, it only adds a shortcut on top of it when confident.</div>
+  `;
+}
+
+renderScenarioList();
+selectScenario('happy');
+
+// ---------- Lightweight in-browser test suite ----------
+const TEST_CASES = SCENARIOS.map(s => ({
+  name: s.label,
+  photo: s.photo,
+  expected: {
+    happy: 'match',
+    ambiguous: 'ambiguous',
+    no_location_services: 'no_location_services',
+    no_photos_permission: 'no_photos_permission',
+    no_gps: 'no_gps',
+    no_match: 'no_match',
+    low_confidence: 'low_confidence',
+    stale: 'stale',
+    already_ranked: 'already_ranked',
+    closed_nearby: 'no_match',
+  }[s.key],
+}));
+
+function runTests() {
+  const results = TEST_CASES.map(tc => {
+    const actual = matchPhoto(tc.photo).status;
+    return { ...tc, actual, pass: actual === tc.expected };
+  });
+  const rows = results.map(r => `
+    <tr>
+      <td>${r.name}</td>
+      <td>${r.expected}</td>
+      <td>${r.actual}</td>
+      <td class="${r.pass ? 'pass' : 'fail'}">${r.pass ? 'PASS' : 'FAIL'}</td>
+    </tr>
+  `).join('');
+  const passCount = results.filter(r => r.pass).length;
+  document.getElementById('test-results').innerHTML = `
+    <table class="test-table">
+      <thead><tr><th>Scenario</th><th>Expected status</th><th>Actual status</th><th>Result</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:8px; font-size:12px; color:var(--muted);">${passCount}/${results.length} scenarios passing</div>
+  `;
+}
+</script>
+</body>
+</html>
