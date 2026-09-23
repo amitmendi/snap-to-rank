@@ -279,7 +279,9 @@ function matchPhoto(photo, now = Date.now()) {
 }
 
 // ---------- Scenario fixtures ----------
-const NOW = Date.parse('2026-09-18T20:00:00');
+// Anchored to real load time, not a fixed date, so "recent" and "stale" stay correct
+// no matter what day this page is actually opened.
+const NOW = Date.now();
 const hoursAgo = h => NOW - h * 3600000;
 
 const SCENARIOS = [
@@ -400,7 +402,7 @@ function showNotification(scenario) {
 
 function handleTap(key) {
   const scenario = SCENARIOS.find(s => s.key === key);
-  const result = matchPhoto(scenario.photo);
+  const result = matchPhoto(scenario.photo, NOW);
   render(result, scenario);
 }
 
@@ -669,7 +671,7 @@ const TEST_CASES = SCENARIOS.map(s => ({
 
 function runTests() {
   const results = TEST_CASES.map(tc => {
-    const actual = matchPhoto(tc.photo).status;
+    const actual = matchPhoto(tc.photo, NOW).status;
     return { ...tc, actual, pass: actual === tc.expected };
   });
   const rows = results.map(r => `
